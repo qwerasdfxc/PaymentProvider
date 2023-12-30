@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
+import javax.naming.AuthenticationException;
 import java.util.Random;
 
 @Service
@@ -27,12 +28,15 @@ public class TransactionService {
 
     private final MerchantRepository merchantRepository;
 
+    //получил транзакцию -  in progress
+    //потом проверки и присваивает fail или approved
     public Mono<TransactionResponse> checkTransaction(TransactionDTO transactionDTO) {
         return cardRepository.existsByCardNumber(transactionDTO.getCardDTO().getCardNumber()).flatMap(exists -> {
             if (!exists)
                 return Mono.just(TransactionResponse.builder().status("FAILED").message("PAYMENT_METHOD_NOT_ALLOWED").build());
             //спросить что делать если не найдена карта, как обработать ошибку
             return cardRepository.findFirstByCardNumber(transactionDTO.getCardDTO().getCardNumber())
+                    .switchIfEmpty(Mono.error(new AuthenticationException()))
                     .flatMap(cardFromDB -> {
                         if ((int) (Math.random() * 5) == 1)
                             return Mono.just(TransactionResponse.builder().status("FAILED").message("PAYMENT_METHOD_NOT_ALLOWED").build());

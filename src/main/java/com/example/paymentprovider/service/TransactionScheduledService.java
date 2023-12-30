@@ -22,6 +22,7 @@ public class TransactionScheduledService {
     @Scheduled(fixedDelay = 10 * 1000)
     private void doPayment() {
         transactionRepository.findAllByStatus(TransactionStatus.IN_PROCESS)
+                //сначала approewd потом меняю баланс
                 .flatMap(transaction -> {
 
                     cardRepository.findById(transaction.getCardId())
