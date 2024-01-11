@@ -1,11 +1,15 @@
 package com.example.paymentprovider.model;
 
+import lombok.Builder;
 import lombok.Data;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
+import java.time.LocalDateTime;
+
 @Data
+@Builder
 @Table(schema = "payment_provider", name = "webhook")
 public class Webhook {
 
@@ -20,7 +24,7 @@ public class Webhook {
     private int attempt;
 
     @Column("last_attempt_time")
-    private Long lastAttempt;
+    private LocalDateTime lastAttempt;
 
     @Column("response_code")
     private Integer responseCode;

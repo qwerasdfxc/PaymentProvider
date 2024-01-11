@@ -22,30 +22,43 @@ public class TransactionScheduledService {
     @Scheduled(fixedDelay = 10 * 1000)
     private void doPayment() {
         transactionRepository.findAllByStatus(TransactionStatus.IN_PROCESS)
-                //сначала approewd потом меняю баланс
                 .flatMap(transaction -> {
-
                     cardRepository.findById(transaction.getCardId())
                             .flatMap(card -> {
-                                card.setAmount(card.getAmount() - transaction.getAmount());
-                                return null;
-                            })
-                            .flatMap(nothing -> {
                                 merchantRepository.findById(transaction.getMerchantId())
-                                        .flatMap(merchant -> merchantWalletRepository.findById(merchant.getWallet_id()))
-                                        .flatMap(merchantWallet -> {
-                                            merchantWallet.setAmount(merchantWallet.getAmount() + transaction.getAmount());
-                                            merchantWalletRepository.save(merchantWallet);
-                                            return null;
-                                        }).subscribe();
-                                return null;
-                            }).flatMap(noData -> sendNotification(transaction))
-                            .subscribe();
-
-                    return null;
-
-
-                }).subscribe();
+                                        .flatMap(merchant -> {
+                                            merchantWalletRepository.findById(merchant.getWallet_id())
+                                                    .flatMap(merchantWallet -> {
+                                                        if(card.getAmount() < transaction.getAmount())
+                                                            throw new
+                                                    })
+                                        })
+                            })
+                })
+                //сначала approewd потом меняю баланс
+//                .flatMap(transaction -> {
+//
+//                    cardRepository.findById(transaction.getCardId())
+//                            .flatMap(card -> {
+//                                card.setAmount(card.getAmount() - transaction.getAmount());
+//                                return null;
+//                            })
+//                            .flatMap(nothing -> {
+//                                merchantRepository.findById(transaction.getMerchantId())
+//                                        .flatMap(merchant -> merchantWalletRepository.findById(merchant.getWallet_id()))
+//                                        .flatMap(merchantWallet -> {
+//                                            merchantWallet.setAmount(merchantWallet.getAmount() + transaction.getAmount());
+//                                            merchantWalletRepository.save(merchantWallet);
+//                                            return null;
+//                                        }).subscribe();
+//                                return null;
+//                            }).flatMap(noData -> sendNotification(transaction))
+//                            .subscribe();
+//
+//                    return null;
+//
+//
+//                }).subscribe();
 
     }
 

@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
 
 @RestController
@@ -18,8 +19,8 @@ public class TransactionController {
     private final TransactionService transactionService;
 
     @PostMapping("transaction")
-    public Mono<TransactionResponse> createTransaction(@RequestBody TransactionDTO transactionDTO){
-        return transactionService.checkTransaction(transactionDTO);
+    public Mono<TransactionResponse> createTransaction(ServerWebExchange serverWebExchange, @RequestBody TransactionDTO transactionDTO){
+        return transactionService.saveTransaction(transactionDTO, serverWebExchange);
 //                .onErrorReturn(TransactionResponse.builder().status("FAILED").message("PAYMENT_METHOD_NOT_ALLOWED").build());
     }
 }
