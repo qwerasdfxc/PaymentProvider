@@ -1,5 +1,6 @@
 package com.example.paymentprovider.service;
 
+import com.example.paymentprovider.exception.InvalidDataException;
 import com.example.paymentprovider.model.Transaction;
 import com.example.paymentprovider.model.TransactionStatus;
 import com.example.paymentprovider.repository.*;
@@ -8,6 +9,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 @Service
 @RequiredArgsConstructor
@@ -18,69 +20,41 @@ public class TransactionScheduledService {
     private final MerchantWalletRepository merchantWalletRepository;
     private final MerchantRepository merchantRepository;
     private final WebhookRepository webhookRepository;
+    private final NotificationService notificationService;
 
     @Scheduled(fixedDelay = 10 * 1000)
     private void doPayment() {
         transactionRepository.findAllByStatus(TransactionStatus.IN_PROCESS)
                 .flatMap(transaction -> {
-                    cardRepository.findById(transaction.getCardId())
+                    return cardRepository.findById(transaction.getCardId())
                             .flatMap(card -> {
-                                merchantRepository.findById(transaction.getMerchantId())
+                                return merchantRepository.findById(transaction.getMerchantId())
                                         .flatMap(merchant -> {
-                                            merchantWalletRepository.findById(merchant.getWallet_id())
+                                            return merchantWalletRepository.findById(merchant.getWallet_id())
                                                     .flatMap(merchantWallet -> {
-                                                        if(card.getAmount() < transaction.getAmount())
-                                                            throw new
-                                                    })
-                                        })
-                            })
-                })
-                //сначала approewd потом меняю баланс
-//                .flatMap(transaction -> {
-//
-//                    cardRepository.findById(transaction.getCardId())
-//                            .flatMap(card -> {
-//                                card.setAmount(card.getAmount() - transaction.getAmount());
-//                                return null;
-//                            })
-//                            .flatMap(nothing -> {
-//                                merchantRepository.findById(transaction.getMerchantId())
-//                                        .flatMap(merchant -> merchantWalletRepository.findById(merchant.getWallet_id()))
-//                                        .flatMap(merchantWallet -> {
-//                                            merchantWallet.setAmount(merchantWallet.getAmount() + transaction.getAmount());
-//                                            merchantWalletRepository.save(merchantWallet);
-//                                            return null;
-//                                        }).subscribe();
-//                                return null;
-//                            }).flatMap(noData -> sendNotification(transaction))
-//                            .subscribe();
-//
-//                    return null;
-//
-//
-//                }).subscribe();
+                                                        if (card.getAmount() < transaction.getAmount()) {
+                                                            transaction.setStatus(TransactionStatus.FAILED);
+                                                            transactionRepository.save(transaction).subscribe();
+                                                            return notificationService.sendTransactionNotification(transaction, "NOT_ENOUGH_MONEY", TransactionStatus.FAILED);
+                                                        } else if ((int) (Math.random() * 5) == 1) {
 
-    }
-
-    private Mono<Void> sendNotification(Transaction transaction) {
-        webhookRepository.findById(transaction.getWebhookId())
-                .flatMap(webhook -> {
-                    WebClient client = WebClient.builder()
-                            .baseUrl(webhook.getNotificationUrl())
-                            .build();
-                    return client
-                            .get()
-                            .retrieve()
-                            .toBodilessEntity()
-                            .flatMap(response -> {
-                                webhook.setResponseCode(response.getStatusCode().value());
-                                return webhookRepository.save(webhook);
+                                                            transaction.setStatus(TransactionStatus.FAILED);
+                                                            transactionRepository.save(transaction).subscribe();
+                                                            return notificationService.sendTransactionNotification(transaction, "INTERNAL_ERROR", TransactionStatus.FAILED);
+                                                        } else {
+                                                            card.setAmount(card.getAmount() - transaction.getAmount());
+                                                            cardRepository.save(card).subscribe();
+                                                            merchantWallet.setAmount(merchantWallet.getAmount() + transaction.getAmount());
+                                                            merchantWalletRepository.save(merchantWallet).subscribe();
+                                                            transaction.setStatus(TransactionStatus.APPROVED);
+                                                            transactionRepository.save(transaction);
+                                                            return notificationService.sendTransactionNotification(transaction, "OK", TransactionStatus.APPROVED);
+                                                        }
+                                                    });
+                                        });
                             });
-
-
-                }).subscribe();
-
-        return Mono.empty();
+                });
     }
+
 
 }
